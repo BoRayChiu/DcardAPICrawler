@@ -8,40 +8,38 @@ import time
 class DcardCrawler:
 
     def __init__(self, board:str, frequency:str):
-        self.board = board
-        self.frequency = frequency
-        self.wanted_topic_ids = []
-        self.result = []
+        self.__board = board
+        self.__frequency = frequency
+        self.__wanted_topic_ids = []
+        self.__result = []
 
-    def main(self):
-        b = Browser()
-        browser = b.get_browser()
-        dcard_topics_id_crawler = DcardTopicsIdCrawler(self.browser, self.frequency)
-        self.wanted_topic_ids = dcard_topics_id_crawler.get_topic_ids()
+    def _main(self):
+        browser = Browser()
+        dcard_topics_id_crawler = DcardTopicsIdCrawler(browser.get, self.__board, self.__frequency)
+        self.__wanted_topic_ids = dcard_topics_id_crawler.result
         time.sleep(60)
-        for topic_id in self.wanted_topic_ids:
+        for topic_id in self.__wanted_topic_ids:
             res = {}
             # post
-            dcard_post_crawler = DcardPostCrawler(browser, topic_id)
+            dcard_post_crawler = DcardPostCrawler(browser.get, topic_id)
             dcard_post_crawler.main()
-            res["Meta Information"] = dcard_post_crawler.get_meta()
-            res["Contents"] = dcard_post_crawler.get_contents()
+            res["Meta Information"] = dcard_post_crawler.meta_result
+            res["Contents"] = dcard_post_crawler.contents_result
             time.sleep(60)
             # comments
-            dcard_comments_crawler = DcardCommentsCrawler(browser, topic_id)
-            dcard_comments_crawler.main()
+            dcard_comments_crawler = DcardCommentsCrawler(browser.get, topic_id)
             res["Comments"] = []
             res{"SubComments"} = []
-            comments_list = dcard_comments_crawler.get_comments_list()
+            comments_list = dcard_comments_crawler.result
             time.sleep(60)
             for i in range(comments_list):
                 res["Comments"].append(comments_list[i])
                 if comments_list[i]["has SubComments"] == True:
-                    dcard_sub_comments_crawler = DcardSubCommentsCrawler(browser, topic_id, comments_list[i]["id"])
-                    dcard_sub_comments_crawler.main()
-                    res["SubComments"].append(dcard_sub_comments_crawler.get_sub_comments_list)
+                    dcard_sub_comments_crawler = DcardSubCommentsCrawler(browser.get, topic_id, comments_list[i]["id"])
+                    res["SubComments"].append(dcard_sub_comments_crawler.result)
                     time.sleep(60)
-        self.result.append(res)
+        self.__result.append(res)
 
     def get_result(self):
-        return self.result
+        self._main()
+        return self.__result

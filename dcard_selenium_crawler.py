@@ -24,34 +24,36 @@ class Browser:
         "proxyType": "MANUAL"
         }
         '''
-        self.opts = Options() 
-        self.opts.add_argument('--headless')
-        self.opts.add_argument('--disable-gpu')
-        self.service = Service(GeckoDriverManager().install())
-        self.browser = webdriver.Firefox(service=self.service, options=self.opts)
+        self.__opts = Options() 
+        #self.__opts.add_argument('--headless')
+        self.__opts.add_argument('--disable-gpu')
+        self.__service = Service(GeckoDriverManager().install())
+        self.__browser = webdriver.Firefox(service=self.__service, options=self.__opts)
 
-    def get_browser(self):
-        return self.browser
+    @property
+    def get(self):
+        return self.__browser
+    
 
 
 class DcardSeleniumCrawler:
     
     def __init__(self, browser):
-        self.browser = browser
-        self.url = "http://checkip.amazonaws.com/"
-        self.result = []
+        self._browser = browser
+        self._url = "http://checkip.amazonaws.com/"
+        self._result = []
 
-    def crawl(self):
+    def _crawl(self):
         # browse the url and get json result
-        self.browser.get(self.url)
+        self._browser.get(self._url)
         time.sleep(5)
-        self.browser.find_element(By.CSS_SELECTOR, "#rawdata-tab").click()
-        res = self.browser.find_element(By.CSS_SELECTOR, "#rawdata-panel pre.data").text
-        self.result = json.loads(res)
+        self._browser.find_element(By.CSS_SELECTOR, "#rawdata-tab").click()
+        res = self._browser.find_element(By.CSS_SELECTOR, "#rawdata-panel pre.data").text
+        self._result = json.loads(res)
 
     def check_ip(self):
-        self.browser.get("http://checkip.amazonaws.com/")
-        ip = self.browser.find_element(By.TAG_NAME, "pre").text
+        self._browser.get("http://checkip.amazonaws.com/")
+        ip = self._browser.find_element(By.TAG_NAME, "pre").text
         print("Ip now: " + ip)
 
 
@@ -59,71 +61,75 @@ class DcardTopicsIdCrawler(DcardSeleniumCrawler):
     
     def __init__(self, browser, board:str, frequency:str):
         super().__init__(browser)
-        self.url = "https://www.dcard.tw/service/api/v2/forums/" + board + "/posts?limit=" + frequency
-        self.topic_ids = []
+        self._url = "https://www.dcard.tw/service/api/v2/forums/" + board + "/posts?limit=" + frequency
+        self.__topic_ids = []
 
-    def main(self):
-        self.crawl()
-        for i in range(len(self.result)):
-            self.topic_ids.append(self.result[i].get("id"))
+    def __main(self):
+        self._crawl()
+        for i in range(len(self._result)):
+            self.__topic_ids.append(self._result[i].get("id"))
 
-    def get_topic_ids(self):
-        return topic_ids
+    @property
+    def result(self):
+        self.__main()
+        return self.__topic_ids
 
 
 class DcardPostCrawler(DcardSeleniumCrawler):
 
     def __init__(self, browser, topic_id:str):
         super().__init__(browser)
-        self.url = "https://www.dcard.tw/service/api/v2/" + "posts/" + topic_id
-        self.meta = {}
-        self.contents = ""
+        self._url = "https://www.dcard.tw/service/api/v2/" + "posts/" + topic_id
+        self.__meta = {}
+        self.__contents = ""
 
     def main(self):
-        self.crawl()
-        school = self.result.get("school")
-        department = self.result.get("department")
+        self._crawl()
+        school = self._result.get("school")
+        department = self._result.get("department")
         # if have "CardName"
-        if(self.result.get("withNickname") == True):
-            self.meta["Author"] = school
-            self.meta["Author ID"] = department
+        if(self._result.get("withNickname") == True):
+            self.__meta["Author"] = school
+            self.__meta["Author ID"] = department
         else:
-            self.meta["School"] = school
-            self.meta["Department"] = department
+            self.__meta["School"] = school
+            self.__meta["Department"] = department
         # title
-        self.meta["Title"] = self.result.get("title")
+        self.__meta["Title"] = self._result.get("title")
         # created time
-        self.meta["Time"] = self.result.get("createdAt")
+        self.__meta["Time"] = self._result.get("createdAt")
         # contents
-        self.contents= self.result.get("content").replace("\n", " ")
+        self.__contents = self._result.get("content").replace("\n", " ")
 
-    def get_meta(self):
-        return self.meta
+    @property
+    def meta_result(self):
+        return self.__meta
 
-    def get_contents(self):
-        return self.contents
+    @property
+    def contents_result(self):
+        return self.__contents
 
 
 class DcardCommentsCrawler(DcardSeleniumCrawler):
     
     def __init__(self, browser, topic_id:str):
         super().__init__(browser)
-        self.url = "https://www.dcard.tw/service/api/v2/" + "posts/" + topic_id + "/comments"
-        self.comments_list = []
+        self._url = "https://www.dcard.tw/service/api/v2/" + "posts/" + topic_id + "/comments"
+        self.__comments_list = []
 
-    def main(self):
-        self.crawl()
-        for i in range(len(self.result)):
+    def __main(self):
+        self._crawl()
+        for i in range(len(self._result)):
             comment = {}
-            id = self.result[i].get("id")
+            id = self._result[i].get("id")
             comment["id"] = id
-            content = self.result[i].get("content")
+            content = self._result[i].get("content")
             if content == None:
                 continue
-            school = self.result[i].get("school")
-            department = self.result[i].get("department")
+            school = self._result[i].get("school")
+            department = self._result[i].get("department")
             # if have "CardName"
-            if(self.result[i]["withNickname"] == True):
+            if(self._result[i]["withNickname"] == True):
                 comment["Author"] = school
                 comment["Author ID"] = department
             else:
@@ -132,52 +138,47 @@ class DcardCommentsCrawler(DcardSeleniumCrawler):
             comment["Content"] = content.replace("\n", " ")
             comment["SubComments"] = []
             # determine if have sub comments
-            if self.result[i].get("subCommentCount") > 0:
+            if self._result[i].get("subCommentCount") > 0:
                 comment["has SubComments"] = True
             else: 
                 comment["has SubComments"] = False
-            self.comments_list.append(comment)
+            self.__comments_list.append(comment)
 
-    def get_comments_list(self):
-        return comments_list
+    @property
+    def result(self):
+        self.__main()
+        return self.__comments_list
 
 
 class DcardSubCommentsCrawler(DcardSeleniumCrawler):
     
     def __init__(self, browser, topic_id:str, parent_comment_id:str):
         super().__init__(browser)
-        self.url = "https://www.dcard.tw/service/api/v2/" + "posts/" + topic_id + "/comments" + "?parentId=" + parent_comment_id
-        self.parent_comment_id = parent_comment_id
-        self.sub_comments_list = []
+        self._url = "https://www.dcard.tw/service/api/v2/" + "posts/" + topic_id + "/comments" + "?parentId=" + parent_comment_id
+        self.__parent_comment_id = parent_comment_id
+        self.__sub_comments_list = []
 
-    def main(self):
-        self.crawl()
-        for i in range(len(self.result)):
+    def __main(self):
+        self._crawl()
+        for i in range(len(self._result)):
             sub_comment = {}
-            sub_comment["Parent Comment ID"] = self.parent_comment_id
-            content = self.result[i].get("content")
+            sub_comment["Parent Comment ID"] = self.__parent_comment_id
+            content = self._result[i].get("content")
             if content == None:
                 continue
-            school = self.result[i].get("school")
-            department = self.result[i].get("department")
+            school = self._result[i].get("school")
+            department = self._result[i].get("department")
             # if have "CardName"
-            if(self.result[i]["withNickname"] == True):
+            if(self._result[i]["withNickname"] == True):
                 sub_comment["Author"] = school
                 sub_comment["Author ID"] = department
             else:
                 sub_comment["School"] = school
                 sub_comment["Department"] = department
             sub_comment["Content"] = content.replace("\n", " ")
-        self.sub_comments_list.append(sub_comment)
+        self.__sub_comments_list.append(sub_comment)
 
-    def get_sub_comments_list(self):
-        return self.sub_comments_list
-
-
-if __name__ == "__main__":
-    b = Browser()
-    tic = DcardSubCommentCrawler(b.browser, "241413053", "6f49247a-4bfb-4d21-974b-e4b2197535e8")
-    #tic.check_ip()
-    tic.main()
-    for t in tic.sub_comment_list:
-        print(t)
+    @property
+    def result(self):
+        self.__main()
+        return self.__sub_comments_list
